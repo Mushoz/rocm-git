@@ -1,0 +1,5 @@
+[python-tensile]
+source = "git"
+git = "https://github.com/ROCm/Tensile.git"
+prefix = "rocm-"
+exclude_regex="v.*"

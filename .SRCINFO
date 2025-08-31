@@ -1,0 +1,20 @@
+pkgbase = python-tensile
+	pkgdesc = benchmark-driven backend libraries for general matrix-matrix multiplications
+	pkgver = 6.4.3
+	pkgrel = 1
+	url = https://rocm.docs.amd.com/projects/Tensile/en/latest/
+	arch = any
+	license = MIT
+	makedepends = cmake
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-setuptools
+	depends = python
+	depends = python-msgpack
+	depends = python-pyaml
+	depends = python-joblib
+	source = python-tensile-6.4.3.tar.gz::https://github.com/ROCm/Tensile/archive/refs/tags/rocm-6.4.3.tar.gz
+	sha256sums = 0190bfc7050c6ea73fb20ce4d35a056644e129f792f3b016b079ee6cc237a598
+
+pkgname = python-tensile
