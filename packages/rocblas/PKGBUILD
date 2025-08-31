@@ -1,7 +1,9 @@
 # Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
 # Contributor: Markus Näther <naether.markus@gmail.com>
 # Contributor: Lubosz Sarnecki <lubosz@gmail.com>
-pkgname=rocblas
+pkgname=rocblas-git
+provides=('rocblas')
+conflicts=('rocblas')
 pkgver=6.4.3
 pkgrel=3
 pkgdesc='Next generation BLAS implementation for ROCm platform'
@@ -32,15 +34,21 @@ makedepends=(
   'msgpack-cxx'
   'gcc-fortran'
 )
-_rocblas='https://github.com/ROCm/rocBLAS'
-_tensile='https://github.com/ROCm/Tensile'
-source=("$pkgname-$pkgver.tar.gz::$_rocblas/archive/refs/tags/rocm-$pkgver.tar.gz"
-        "$pkgname-tensile-$pkgver.tar.gz::$_tensile/archive/refs/tags/rocm-$pkgver.tar.gz")
-sha256sums=('754dcc88b30468a2293d2406d7fe40f78dc92dd77c193758f937532217ecdad3'
-            '0190bfc7050c6ea73fb20ce4d35a056644e129f792f3b016b079ee6cc237a598')
-options=(!strip)
-_dirname="$(basename "$_rocblas")-$(basename "${source[0]}" ".tar.gz")"
-_tensile_dir="$(basename "$_tensile")-$(basename "${source[1]}" ".tar.gz")"
+source=("git+https://github.com/ROCm/rocm-libraries.git#branch=develop")
+sha256sums=('SKIP')
+options=('!strip')
+_root="rocm-libraries"
+_dirname="$_root/projects/rocblas"
+_tensile_dir="$_root/shared/tensile"
+
+pkgver() {
+  cd $_root
+  set -o pipefail
+  git describe --tags --long 2>/dev/null \
+    sed 's/^v//; s/-\([0-9][0-9]*\)-g/.r\1.g/; s/-/./g' \
+    || printf '0.r%s.g%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  set +o pipefail
+}
 
 build() {
   # Compile source code for supported GPU archs in parallel
@@ -71,6 +79,8 @@ build() {
     -D BUILD_WITH_PIP=OFF
     # hipblaslt doesn't support all relevant targets
     -D BUILD_WITH_HIPBLASLT=OFF
+    -D GPU_TARGETS="gfx1100;gfx1151"
+    -D Tensile_ROOT="$srcdir/$_tensile_dir/Tensile"
   )
   cmake "${cmake_args[@]}"
   cmake --build build
