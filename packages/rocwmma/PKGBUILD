@@ -1,6 +1,8 @@
 # Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
 
-pkgname=rocwmma
+pkgname=rocwmma-git
+provides=('rocwmma')
+conflicts=('rocwmma')
 pkgver=6.4.3
 pkgrel=2
 pkgdesc='Library for accelerating mixed precision matrix multiplication'
@@ -9,11 +11,23 @@ url='https://rocm.docs.amd.com/projects/rocWMMA/en/latest/'
 license=('MIT')
 depends=('rocm-core' 'hip-runtime-amd' 'rocblas' 'openmp')
 makedepends=('rocm-cmake' 'doxygen' 'rocm-toolchain')
-_git='https://github.com/ROCmSoftwarePlatform/rocWMMA'
-source=("$pkgname-$pkgver.tar.gz::$_git/archive/rocm-$pkgver.tar.gz")
-sha256sums=('34797c458603688748a046b611e14693221843de96740ed3ba5c606d41ab0cdf')
-_dirname="$(basename "$_git")-$(basename "${source[0]}" .tar.gz)"
+source=("git+https://github.com/ROCmSoftwarePlatform/rocWMMA#branch=develop")
+sha256sums=('SKIP')
+_dirname="rocWMMA"
 options=(!lto)
+
+pkgver() {
+  cd $_dirname
+  set -o pipefail
+  git describe --tags --long 2>/dev/null \
+    sed 's/^v//; s/-\([0-9][0-9]*\)-g/.r\1.g/; s/-/./g' \
+    || printf '0.r%s.g%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  set +o pipefail
+}
+
+prepare() {
+    sed -i 's/if(F8_EXISTS)/if(1)/g' rocWMMA/CMakeLists.txt
+}
 
 build() {
     local cmake_args=(
@@ -28,7 +42,7 @@ build() {
         -D ROCWMMA_BUILD_SAMPLES=OFF
         -D ROCM_SYMLINK_LIBS=OFF
         -D HIP_PLATFORM=amd
-        -D GPU_TARGETS=$(rocm-supported-gfx)
+        -D GPU_TARGETS="gfx1100;gfx1151"
     )
     cmake "${cmake_args[@]}"
     cmake --build build
