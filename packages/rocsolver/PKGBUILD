@@ -1,6 +1,8 @@
 # Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
 
-pkgname=rocsolver
+pkgname=rocsolver-git
+provides=('rocsolver')
+conflicts=('rocsolver')
 pkgver=6.4.3
 pkgrel=1
 pkgdesc='Subset of LAPACK functionality on the ROCm platform'
@@ -9,11 +11,20 @@ url='https://rocm.docs.amd.com/projects/rocSOLVER/en/latest/index.html'
 license=('BSD-2-Clause')
 depends=('rocm-core' 'glibc' 'gcc-libs' 'hip-runtime-amd' 'rocblas' 'rocsparse')
 makedepends=('rocm-cmake' 'python-pyaml' 'fmt')
-_git='https://github.com/ROCmSoftwarePlatform/rocSOLVER'
-source=("$pkgname-$pkgver.tar.gz::$_git/archive/rocm-$pkgver.tar.gz")
-sha256sums=('6c2c6019eaf49abb30fc54f09b3d755ebcfbbd30d9b71052aa13bb0cbc26d2bb')
+source=("git+https://github.com/ROCm/rocm-libraries.git#branch=develop")
+sha256sums=('SKIP')
 options=(!lto)
-_dirname="$(basename "$_git")-$(basename "${source[0]}" .tar.gz)"
+_root=rocm-libraries
+_dirname="$_root/projects/rocsolver"
+
+pkgver() {
+  cd $_root
+  set -o pipefail
+  git describe --tags --long 2>/dev/null \
+    sed 's/^v//; s/-\([0-9][0-9]*\)-g/.r\1.g/; s/-/./g' \
+    || printf '0.r%s.g%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  set +o pipefail
+}
 
 build() {
     # Compile source code for supported GPU archs in parallel
@@ -30,6 +41,7 @@ build() {
         -D CMAKE_CXX_FLAGS="${CXXFLAGS} -fcf-protection=none"
         -D CMAKE_INSTALL_PREFIX=/opt/rocm
         -D ROCSOLVER_EMBED_FMT=ON
+        -D GPU_TARGETS=gfx1100,gfx1151
     )
     cmake "${cmake_args[@]}"
     cmake --build build
