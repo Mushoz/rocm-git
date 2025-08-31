@@ -1,0 +1,83 @@
+# Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
+# Contributor: Markus Näther <naether.markus@gmail.com>
+# Contributor: Lubosz Sarnecki <lubosz@gmail.com>
+pkgname=rocblas
+pkgver=6.4.3
+pkgrel=3
+pkgdesc='Next generation BLAS implementation for ROCm platform'
+arch=('x86_64')
+url='https://rocm.docs.amd.com/projects/rocBLAS/en/latest/index.html'
+license=('MIT')
+depends=(
+  'rocm-core'
+  'hip-runtime-amd'
+  'roctracer'
+  'glibc'
+  'gcc-libs'
+  'openmp'
+  'cblas'
+)
+makedepends=(
+  'git'
+  'cmake'
+  'rocm-cmake'
+  'python'
+  'python-virtualenv'
+  'python-pyaml'
+  'python-wheel'
+  'python-tensile'
+  'python-msgpack'
+  'python-joblib'
+  'perl-file-which'
+  'msgpack-cxx'
+  'gcc-fortran'
+)
+_rocblas='https://github.com/ROCm/rocBLAS'
+_tensile='https://github.com/ROCm/Tensile'
+source=("$pkgname-$pkgver.tar.gz::$_rocblas/archive/refs/tags/rocm-$pkgver.tar.gz"
+        "$pkgname-tensile-$pkgver.tar.gz::$_tensile/archive/refs/tags/rocm-$pkgver.tar.gz")
+sha256sums=('754dcc88b30468a2293d2406d7fe40f78dc92dd77c193758f937532217ecdad3'
+            '0190bfc7050c6ea73fb20ce4d35a056644e129f792f3b016b079ee6cc237a598')
+options=(!strip)
+_dirname="$(basename "$_rocblas")-$(basename "${source[0]}" ".tar.gz")"
+_tensile_dir="$(basename "$_tensile")-$(basename "${source[1]}" ".tar.gz")"
+
+build() {
+  # Compile source code for supported GPU archs in parallel
+  export HIPCC_COMPILE_FLAGS_APPEND="-parallel-jobs=$(nproc)"
+  export HIPCC_LINK_FLAGS_APPEND="-parallel-jobs=$(nproc)"
+
+  # -fcf-protection is not supported by HIP, see
+  # https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html#support-status-of-other-clang-options
+  local cmake_args=(
+    -Wno-dev
+    -S "$_dirname"
+    -B build
+    -D CMAKE_BUILD_TYPE=RelWithDebInfo
+    -D CMAKE_C_COMPILER=/opt/rocm/lib/llvm/bin/amdclang
+    -D CMAKE_CXX_COMPILER=/opt/rocm/lib/llvm/bin/amdclang++
+    -D CMAKE_TOOLCHAIN_FILE=toolchain-linux.cmake
+    -D CMAKE_CXX_FLAGS="${CXXFLAGS} -fcf-protection=none"
+    -D CMAKE_INSTALL_PREFIX=/opt/rocm
+    -D CMAKE_PREFIX_PATH=/opt/rocm/llvm/lib/cmake/llvm
+    -D amd_comgr_DIR=/opt/rocm/lib/cmake/amd_comgr
+    -D BUILD_FILE_REORG_BACKWARD_COMPATIBILITY=OFF
+    -D HIP_PLATFORM=amd
+    -D BLAS_LIBRARY=cblas
+    -D BUILD_WITH_TENSILE=ON
+    -D Tensile_LIBRARY_FORMAT=msgpack
+    -D Tensile_TEST_LOCAL_PATH="$srcdir/$_tensile_dir"
+    -D Tensile_COMPILER=hipcc
+    -D BUILD_WITH_PIP=OFF
+    # hipblaslt doesn't support all relevant targets
+    -D BUILD_WITH_HIPBLASLT=OFF
+  )
+  cmake "${cmake_args[@]}"
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+
+  install -Dm644 "$_dirname/LICENSE.md" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
