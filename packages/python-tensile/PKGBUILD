@@ -1,6 +1,8 @@
 # Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
-pkgname=python-tensile
-pkgver=6.4.3
+pkgname=python-tensile-git
+provides=('python-tensile')
+conflicts=('python-tensile')
+pkgver=0
 pkgrel=1
 pkgdesc="benchmark-driven backend libraries for general matrix-matrix multiplications"
 arch=('any')
@@ -8,28 +10,28 @@ url='https://rocm.docs.amd.com/projects/Tensile/en/latest/'
 license=('MIT')
 depends=('python' 'python-msgpack' 'python-pyaml' 'python-joblib')
 makedepends=('cmake' 'python-build' 'python-installer' 'python-wheel' 'python-setuptools')
-_git='https://github.com/ROCm/Tensile'
-source=("$pkgname-$pkgver.tar.gz::$_git/archive/refs/tags/rocm-$pkgver.tar.gz")
-sha256sums=('0190bfc7050c6ea73fb20ce4d35a056644e129f792f3b016b079ee6cc237a598')
+makedepends+=('git')
+source=("git+https://github.com/ROCm/rocm-libraries.git#branch=develop")
+sha256sums=('SKIP')
+_root="rocm-libraries"
+_dir="$_root/shared/tensile"
 
-prepare() {
-	cd "Tensile-rocm-$pkgver"
-	# https://src.fedoraproject.org/rpms/python-tensile/blob/rawhide/f/python-tensile.spec#_85
-	sed -i -e 's@${Tensile_PREFIX}/bin/TensileGetPath@TensileGetPath@g' Tensile/cmake/TensileConfig.cmake
-	sed -i -e 's@opt/rocm@usr@g' Tensile/Common.py
-	sed -i -e 's@opt/rocm@usr@g' Tensile/Tests/yaml_only/test_config.py
-	sed -i -e 's@globalParameters["IgnoreAsmCapCache"] = False@globalParameters["IgnoreAsmCapCache"] = True@' Tensile/Common.py
-	sed -i -e 's@arguments["IgnoreAsmCapCache"] = args.IgnoreAsmCapCache@arguments["IgnoreAsmCapCache"] = True@' Tensile/TensileCreateLibrary.py
-	sed -i -e 's@if not ignoreCacheCheck and derivedAsmCaps@if False and derivedAsmCaps@' Tensile/Common.py
+pkgver() {
+	cd $_root
+	set -o pipefail
+ 	git describe --tags --long 2>/dev/null \
+    	| sed 's/^v//; s/-\([0-9][0-9]*\)-g/.r\1.g/; s/-/./g' \
+    	|| printf '0.r%s.g%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  	set +o pipefail
 }
 
 build() {
-	cd "Tensile-rocm-$pkgver"
+	cd "$_dir"
 	python -m build --wheel --no-isolation
 }
 
 package() {
-	cd "Tensile-rocm-$pkgver"
+	cd "$_dir"
 	python -m installer --destdir="$pkgdir" dist/*.whl
 	# cmake files are installed to the wrong location, /usr/cmake.
 	# Move them to the right directory.
