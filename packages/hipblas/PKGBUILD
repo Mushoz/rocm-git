@@ -1,6 +1,8 @@
 # Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
 # Contributor: Markus Näther <naether.markus@gmail.com>
-pkgname=hipblas
+pkgname=hipblas-git
+provides=('hipblas')
+conflicts=('hipblas')
 pkgver=6.4.3
 pkgrel=1
 pkgdesc='ROCm BLAS marshalling library'
@@ -9,10 +11,19 @@ url='https://rocm.docs.amd.com/projects/hipBLAS/en/latest/index.html'
 license=('MIT')
 depends=('rocm-core' 'glibc' 'gcc-libs' 'hip-runtime-amd' 'hipblas-common' 'rocblas' 'rocsolver')
 makedepends=('rocm-cmake' 'git' 'cmake' 'gcc-fortran')
-_git='https://github.com/ROCm/hipBLAS'
-source=("$pkgname-$pkgver.tar.gz::$_git/archive/rocm-$pkgver.tar.gz")
-sha256sums=('75121df09f9b0b3116c19258c9526e0cff3d8845361031305ba0369f140fd8b8')
-_dirname="$(basename "$_git")-$(basename "${source[0]}" ".tar.gz")"
+source=("git+https://github.com/ROCm/rocm-libraries.git#branch=develop")
+sha256sums=('SKIP')
+_root="rocm-libraries"
+_dirname="$_root/projects/hipblas"
+
+pkgver() {
+  cd $_root
+  set -o pipefail
+  git describe --tags --long 2>/dev/null \
+    sed 's/^v//; s/-\([0-9][0-9]*\)-g/.r\1.g/; s/-/./g' \
+    || printf '0.r%s.g%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  set +o pipefail
+}
 
 build() {
   # -fcf-protection is not supported by HIP, see
@@ -24,6 +35,7 @@ build() {
     -D CMAKE_BUILD_TYPE=None
     -D CMAKE_CXX_COMPILER=/opt/rocm/bin/hipcc
     -D CMAKE_CXX_FLAGS="${CXXFLAGS} -fcf-protection=none"
+    -D GPU_TARGETS=gfx1100,gfx1151
   )
   cmake "${cmake_args[@]}"
   cmake --build build
